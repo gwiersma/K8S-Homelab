@@ -2,7 +2,10 @@
 - name: Prep nodes for k8s
   hosts: all
   vars:
-    k8s_version: "1.28.2-00"
+    k8s_url_apt_key: "https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key"
+    k8s_gpgpath: "/usr/share/keyrings/kubernetes-apt-keyring.gpg"
+    k8s_repository: "https://pkgs.k8s.io/core:/stable:/v1.28/deb/"
+    k8s_version: "1.28.15-1.1"
     k8s_network: "calico"
     k8s_network_fw:
       calico:
@@ -155,12 +158,23 @@
         state: present
         filename: docker-ce
 
-    - name: Add the k8s apt repository
+    - name: Remove the old k8s apt repository
       apt_repository:
         repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
-        state: present
+        state: absent
         filename: kubernetes
 
+    - name: Get Kubernetes package key
+      shell: curl -fsSL {{ k8s_url_apt_key }} | gpg --dearmor -o {{ k8s_gpgpath }}
+      args:
+        creates: "{{ k8s_gpgpath }}"
+
+    - name: Add the k8s apt repository
+      apt_repository:
+        repo: "deb [signed-by={{ k8s_gpgpath }}] {{ k8s_repository }} /"
+        state: present
+        filename: kubernetes
+          
     - name: Update packages after adding repo
       apt:
         update_cache: True
